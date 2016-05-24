@@ -1,20 +1,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+/*#include <windows.h>*/
+/*#include <unistd.h>*/
 
 #define DEF_MEMORY 1024
-#define VERSION "0.1.alfa"
-
-typedef struct _stack {
-    int elem;
-    struct _stack *next;
-} stack;
-
-void stack_init(stack *st);
-void stack_destroy(stack *st);
-int stack_is_empty(stack *st);
-void stack_push(stack *st, int elem);
-void stack_pop(stack *st);
+#define VERSION "1.0"
 
 void print_help();
 char *load_prog(FILE *f);
@@ -114,7 +105,6 @@ void execute(char *prog, int memlen, short *mem){
                 break;
             case '.':
                 exec_write(mp,mem);
-                /*printf("Writing shit...\n");*/
                 pp++;
                 break;
             case ',':
@@ -150,15 +140,18 @@ void exec_sub(int mp, short *mem){
 }
 void exec_write(int mp, short *mem){
     putchar(mem[mp]);
-    printf("Every day im printing...\n");
+    /*sleep(1);*/
+    /*printf("Every day im printing...\n");*/
 }
 void exec_read(int mp, short *mem){
     mem[mp] = getchar();
 }
 int exec_loop(int pp, char *prog, int *mp, int memlen, short *mem){
-    /*printf("This is only a test...\n");*/
     int tmp = pp;
+    pp++;
     int match = find_match(prog,pp);
+    /*printf("curr_pos: %d, match: %d\n",pp,match);*/
+    /*sleep(5);*/
     if(match==-1){
         printf("Unmached \'[\'\n");
         exit(1);
@@ -227,7 +220,6 @@ char *load_prog(FILE *f){
     fread(str,fsize,1,f);
 
     str[fsize] = 0;
-
     return str;
 }
 
@@ -238,28 +230,4 @@ void print_help(){
     printf("\t\t%*s%*s\n",-25,"--help",-125,"displays the help");
     printf("\t\t%*s%*s\n",-25,"--version",-125,"displays the version");
     printf("\t\t%*s%*s\n",-25,"--memory n",-125,"sets the data memory to n Bytes (default 1024, minimum 64)");
-}
-
-void stack_init(stack *st){
-    st = (stack*)malloc(sizeof(stack));
-}
-void stack_destroy(stack *st){
-    free(st);
-}
-int stack_is_empty(stack *st){
-    return st->next==NULL ? 1 : 0;
-}
-void stack_push(stack *st, int elem){
-    stack *tmp = (stack*)malloc(sizeof(stack));
-    tmp->elem = elem;
-    tmp->next = st->next;
-    st->next = tmp;
-}
-void stack_pop(stack *st){
-    if(stack_is_empty(st)){
-        printf("You're popping an empty stack!\n");
-        exit(1);
-    }
-    stack *tmp = st->next->next;
-    st->next = tmp;
 }
