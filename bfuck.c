@@ -148,11 +148,12 @@ void exec_read(int mp, short *mem){
 }
 int exec_loop(int pp, char *prog, int *mp, int memlen, short *mem){
     int tmp = pp;
-    pp++;
     int match = find_match(prog,pp);
     /*printf("curr_pos: %d, match: %d\n",pp,match);*/
+    pp++;
     /*sleep(5);*/
     if(match==-1){
+        /*printf("%c\n",prog[pp]);*/
         printf("Unmached \'[\'\n");
         exit(1);
     }
@@ -189,7 +190,7 @@ int exec_loop(int pp, char *prog, int *mp, int memlen, short *mem){
                     break;
                 case ']':
                     if(mem[*mp]!=0) pp = tmp;
-                    else pp++;
+                    else pp = match + 1;
                     break;
                 default:
                     pp++;
