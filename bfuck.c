@@ -6,24 +6,30 @@
 
 #define DEF_MEMORY 1024
 #define VERSION "1.0"
+#define TRUE 1
+#define FALSE 0
 
 void print_help();
+void write_mem_to_file(short *mem, int len, FILE *file);
+void write_inst_to_file(char c, FILE *file);
 char *load_prog(FILE *f);
 int find_match(char *prog, int num);
 
-void execute(char *prog, int memlen, short *mem);
+void execute(char *prog, int memlen, short *mem, int debug, FILE *debug_fp);
 void exec_move_right(int *mp, int memlen);
 void exec_move_left(int *mp, int memlen);
 void exec_add(int mp, short *mem);
 void exec_sub(int mp, short *mem);
 void exec_write(int mp, short *mem);
 void exec_read(int mp, short *mem);
-int exec_loop(int pp, char *prog, int *mp, int memlen, short *mem);
+int exec_loop(int pp, char *prog, int *mp, int memlen, short *mem, int debug, FILE *debug_fp);
 
 int main(int argc, const char *argv[]){
     FILE *fp = NULL;
+    FILE *debug_fp = NULL;
     short *mem = (short*)calloc(DEF_MEMORY,sizeof(short));
     int val = 0;
+    int debug = FALSE;
 
     if (argc==1) {
         print_help();
@@ -36,7 +42,6 @@ int main(int argc, const char *argv[]){
             print_help();
             return 0;
         }else if (strcmp(argv[i],"--memory")==0) {
-            /*printf("feature not implemented yet\n");*/
             char *tmp = (char*)malloc(strlen(argv[i+1])*sizeof(char));
             i++;
             strcpy(tmp,argv[i]);
@@ -46,16 +51,14 @@ int main(int argc, const char *argv[]){
             }else {
                 printf("The number of bytes you have specified is not valid.\n");
             }
-        }else if (strcmp(argv[i],"--version")==0) {
+        }else if(strcmp(argv[i],"--debug")==0){
+            debug = TRUE;
+            i++;
+            debug_fp = fopen(argv[i],"w");
+        }else if(strcmp(argv[i],"--version")==0) {
             printf("bfuck %s\n",VERSION);
-        }else if (argc-1>0 && (fp=fopen(argv[i],"rb"))) {
-            /*printf("%s\n");*/
-            /*char c;*/
-            /*while ((c=fgetc(fp))!=EOF) {*/
-                /*printf("%c",c);*/
-            /*}*/
-            /*fclose(fp);*/
-        }else {
+        }else if(argc-1>0 && (fp=fopen(argv[i],"rb"))) {
+        }else{
             if(argv[i][0]=='-'){
                 printf("Unknown flag: %s\n",argv[i]);
             }else{
@@ -65,27 +68,36 @@ int main(int argc, const char *argv[]){
             return 1;
         }
     }
-    /*printf("%p\n",fp);*/
 
     if (fp==NULL) {
         printf("You have not specified a file.\n");
         return 1;
     }else{
         val = (val>=64) ? val : DEF_MEMORY;
+
         char *prog = load_prog(fp);
         fclose(fp);
-        execute(prog,val,mem);
+
+        execute(prog,val,mem,debug,debug_fp);
+    }
+
+    if(debug_fp!=NULL){
+        fclose(debug_fp);
     }
 
     free(mem);
     return 0;
 }
 
-void execute(char *prog, int memlen, short *mem){
+void execute(char *prog, int memlen, short *mem, int debug, FILE *debug_fp){
     int pp = 0;
     int mp = 0;
     printf("%s\n",prog);
+
+    const char instrs[] = "<>+-[],.";
+
     while(pp<strlen(prog)){
+        char tmp = prog[pp];
         switch(prog[pp]){
             case '>':
                 exec_move_right(&mp,memlen);
@@ -112,14 +124,19 @@ void execute(char *prog, int memlen, short *mem){
                 pp++;
                 break;
             case '[':
-                pp = exec_loop(pp,prog,&mp,memlen,mem);
+                pp = exec_loop(pp,prog,&mp,memlen,mem,debug,debug_fp);
                 break;
             case ']':
                 printf("Unmached \']\'\n");
                 exit(1);
             default:
                 pp++;
-                continue;
+        }
+        if(debug && strchr(instrs,tmp)!=NULL){
+            write_inst_to_file(tmp,debug_fp);
+            if(tmp=='+' || tmp=='-'){
+                write_mem_to_file(mem,memlen,debug_fp);
+            }
         }
     }
 }
@@ -146,7 +163,7 @@ void exec_write(int mp, short *mem){
 void exec_read(int mp, short *mem){
     mem[mp] = getchar();
 }
-int exec_loop(int pp, char *prog, int *mp, int memlen, short *mem){
+int exec_loop(int pp, char *prog, int *mp, int memlen, short *mem, int debug, FILE *debug_fp){
     int tmp = pp;
     int match = find_match(prog,pp);
     /*printf("curr_pos: %d, match: %d\n",pp,match);*/
@@ -157,9 +174,11 @@ int exec_loop(int pp, char *prog, int *mp, int memlen, short *mem){
         printf("Unmached \'[\'\n");
         exit(1);
     }
+    const char instrs[] = "<>+-[],.";
     if(mem[*mp]==0) return match+1;
     else{
         while(pp<=match){
+            char tmpc = prog[pp];
             switch(prog[pp]){
                 case '>':
                     exec_move_right(mp,memlen);
@@ -186,15 +205,21 @@ int exec_loop(int pp, char *prog, int *mp, int memlen, short *mem){
                     pp++;
                     break;
                 case '[':
-                    pp = exec_loop(pp,prog,mp,memlen,mem);
+                    pp = exec_loop(pp,prog,mp,memlen,mem,debug,debug_fp);
                     break;
                 case ']':
                     if(mem[*mp]!=0) pp = tmp;
-                    else pp = match + 1;
+                    else pp++;
                     break;
                 default:
                     pp++;
                     continue;
+            }
+            if(debug && strchr(instrs,tmpc)!=NULL){
+                write_inst_to_file(tmpc,debug_fp);
+                if(tmpc=='+' || tmpc=='-'){
+                    write_mem_to_file(mem,memlen,debug_fp);
+                }
             }
         }
         return pp;
@@ -230,5 +255,21 @@ void print_help(){
     printf("Options:\n");
     printf("\t\t%*s%*s\n",-25,"--help",-125,"displays the help");
     printf("\t\t%*s%*s\n",-25,"--version",-125,"displays the version");
+    printf("\t\t%*s%*s\n",-25,"--debug",-125,"writes the debug info into a file");
     printf("\t\t%*s%*s\n",-25,"--memory n",-125,"sets the data memory to n Bytes (default 1024, minimum 64)");
+}
+
+void write_mem_to_file(short *mem, int len, FILE *file){
+    fprintf(file, "Memory:\n");
+    int i = 0;
+    while(i<len){
+        if(i%100==0) fprintf(file, "\n");
+        fprintf(file, "%2X ", mem[i]);
+        i++;
+    }
+    fprintf(file, "\n");
+}
+
+void write_inst_to_file(char c, FILE *file){
+    fprintf(file, "Instruction : %c\n", c);
 }
